@@ -13,24 +13,27 @@ document.querySelectorAll("input, select").forEach(el => {
     });
 });
 
-form.addEventListener("submit", function (e) {
-    e.preventDefault();
 
-    const nombre = document.getElementById("nombre").value.trim();
-    const tipo = document.getElementById("tipo").value.trim();
-    const cantidad = parseInt(document.getElementById("cantidad").value) || 0;
-    const costo = parseFloat(document.getElementById("costo").value) || 0;
-    const stock = document.getElementById("stock").value;
+if(form){
+    form.addEventListener("submit", function (e) {
+        e.preventDefault();
 
-    if (!nombre || !tipo || !stock) {
-        mensaje.innerHTML = `<div class="alert error">Completa los campos obligatorios</div>`;
-        return;
-    }
+        const nombre = document.getElementById("nombre").value.trim();
+        const tipo = document.getElementById("tipo").value.trim();
+        const cantidad = parseInt(document.getElementById("cantidad").value) || 0;
+        const costo = parseFloat(document.getElementById("costo").value) || 0;
+        const stock = document.getElementById("stock").value;
 
-    btn.innerText = "Guardando...";
-    btn.disabled = true;
+        if (!nombre || !tipo || !stock) {
+            mensaje.innerHTML = `<div class="alert error">Completa los campos obligatorios</div>`;
+            return;
+        }
 
-    setTimeout(() => {
+        // usuario logueado
+        let session = JSON.parse(localStorage.getItem("session")) || { user: "Admin" };
+
+        btn.innerText = "Guardando...";
+        btn.disabled = true;
 
         const producto = {
             nombre,
@@ -38,18 +41,30 @@ form.addEventListener("submit", function (e) {
             cantidad,
             costo,
             stock,
-            fecha: new Date().toLocaleString()
+            usuario: session.user
         };
 
-        let productos = JSON.parse(localStorage.getItem("productos")) || [];
-        productos.push(producto);
-        localStorage.setItem("productos", JSON.stringify(productos));
+       
+        fetch("http://grupo9.test/api/guardar_producto.php", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(producto)
+        })
+        .then(res => res.json())
+        .then(() => {
 
-        mensaje.innerHTML = `<div class="alert success">Producto guardado correctamente</div>`;
+            mensaje.innerHTML = `<div class="alert success">Producto guardado correctamente</div>`;
 
-        form.reset();
-        btn.innerText = "Guardar Producto";
-        btn.disabled = false;
-
-    }, 600);
-});
+            form.reset();
+            btn.innerText = "Guardar Producto";
+            btn.disabled = false;
+        })
+        .catch(() => {
+            mensaje.innerHTML = `<div class="alert error">Error al guardar</div>`;
+            btn.innerText = "Guardar Producto";
+            btn.disabled = false;
+        });
+    });
+}

@@ -1,20 +1,25 @@
-document.addEventListener("DOMContentLoaded", () => {
-    checkAuth();        //
-    mostrarUsuario();   
-
-    productos = JSON.parse(localStorage.getItem("productos")) || [];
-    render();
-});
-
 let productos = [];
 let paginaActual = 1;
 const porPagina = 5;
 let editIndex = null;
 
+
 document.addEventListener("DOMContentLoaded", () => {
-    productos = JSON.parse(localStorage.getItem("productos")) || [];
-    render();
+    checkAuth();
+    mostrarUsuario();
+    cargarProductos();
 });
+
+
+function cargarProductos() {
+    fetch("http://grupo9.test/api/get_productos.php")
+    .then(res => res.json())
+    .then(data => {
+        productos = data;
+        render();
+    });
+}
+
 
 function render() {
     const tabla = document.getElementById("tablaRegistros");
@@ -31,31 +36,31 @@ function render() {
             <td>${p.cantidad}</td>
             <td>$${p.costo}</td>
             <td>${p.stock}</td>
- <td>${p.usuario || "Admin"}</td>
+            <td>${p.usuario || "Admin"}</td>
             <td>
                 <button class="btn-edit" onclick="abrirModal(${inicio + i})">Editar</button>
-                <button class="btn-delete" onclick="eliminar(${inicio + i})">Eliminar</button>
+                <button class="btn-delete" onclick="eliminar(${p.id})">Eliminar</button>
             </td>
         </tr>`;
     });
 
-   
-   document.getElementById("totalProductos").innerText = productos.length;
+    
+    document.getElementById("totalProductos").innerText = productos.length;
 
+    let totalCantidad = productos.reduce((sum, p) => sum + (parseInt(p.cantidad) || 0), 0);
+    document.getElementById("totalCantidad").innerText = totalCantidad;
 
-let totalCantidad = productos.reduce((sum, p) => sum + (p.cantidad || 0), 0);
-document.getElementById("totalCantidad").innerText = totalCantidad;
+    let totalCosto = productos.reduce((sum, p) =>
+        sum + ((parseInt(p.cantidad) || 0) * (parseFloat(p.costo) || 0)), 0
+    );
+    document.getElementById("totalCosto").innerText = "$" + totalCosto.toLocaleString();
 
-
-let totalCosto = productos.reduce((sum, p) => sum + ((p.cantidad || 0) * (p.costo || 0)), 0);
-document.getElementById("totalCosto").innerText = "$" + totalCosto.toLocaleString();
-
-
-let totalStock = productos.filter(p => p.stock === "si").length;
-document.getElementById("totalStock").innerText = totalStock;
+    let totalStock = productos.filter(p => p.stock === "si").length;
+    document.getElementById("totalStock").innerText = totalStock;
 
     paginacion();
 }
+
 
 function paginacion() {
     let total = Math.ceil(productos.length / porPagina);
@@ -72,13 +77,22 @@ function cambiar(p) {
     render();
 }
 
-function eliminar(i) {
+
+function eliminar(id) {
     if (confirm("Eliminar producto?")) {
-        productos.splice(i, 1);
-        localStorage.setItem("productos", JSON.stringify(productos));
-        render();
+
+        fetch("http://grupo9.test/api/delete_producto.php", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ id })
+        })
+        .then(res => res.json())
+        .then(() => {
+            cargarProductos();
+        });
     }
 }
+
 
 function abrirModal(i) {
     editIndex = i;
@@ -98,17 +112,26 @@ function cerrarModal() {
 }
 
 document.getElementById("btnGuardar").addEventListener("click", () => {
-	 let usuarioActual = JSON.parse(localStorage.getItem("session")) || { user: "Admin" };
 
-    productos[editIndex].nombre = editNombre.value;
-    productos[editIndex].tipo = editTipo.value;
-    productos[editIndex].cantidad = parseInt(editCantidad.value) || 0;
-    productos[editIndex].costo = parseFloat(editCosto.value) || 0;
-    productos[editIndex].stock = editStock.value;
-	 productos[editIndex].usuario = usuarioActual.user;
+    let p = productos[editIndex];
+    let usuarioActual = JSON.parse(localStorage.getItem("session")) || { user: "Admin" };
 
-    localStorage.setItem("productos", JSON.stringify(productos));
-
-    cerrarModal();
-    render();
+    fetch("http://grupo9.test/api/update_producto.php", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            id: p.id,
+            nombre: editNombre.value,
+            tipo: editTipo.value,
+            cantidad: parseInt(editCantidad.value) || 0,
+            costo: parseFloat(editCosto.value) || 0,
+            stock: editStock.value,
+            usuario: usuarioActual.user
+        })
+    })
+    .then(res => res.json())
+    .then(() => {
+        cerrarModal();
+        cargarProductos();
+    });
 });
